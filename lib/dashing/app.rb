@@ -6,7 +6,6 @@ require 'coffee-script'
 require 'sass'
 require 'json'
 require 'yaml'
-require 'thin'
 
 SCHEDULER = Rufus::Scheduler.new
 
@@ -59,7 +58,7 @@ end
 
 get '/' do
   protected!
-  dashboard = settings.default_dashboard || first_dashboard
+  dashboard = @user_dashboard
   raise Exception.new('There are no dashboards available') if not dashboard
 
   redirect "/" + dashboard
@@ -78,8 +77,8 @@ end
 get '/:dashboard' do
   protected!
   tilt_html_engines.each do |suffix, _|
-    file = File.join(settings.views, "#{params[:dashboard]}.#{suffix}")
-    return render(suffix.to_sym, params[:dashboard].to_sym) if File.exist? file
+    file = File.join(settings.views, "#{@user_dashboard}.#{suffix}")
+    return render(suffix.to_sym, @user_dashboard.to_sym) if File.exist? file
   end
 
   halt 404
@@ -118,16 +117,6 @@ get '/views/:widget?.html' do
     file = File.join(settings.root, "widgets", params[:widget], "#{params[:widget]}.#{suffix}")
     return engines.first.new(file).render if File.exist? file
   end
-end
-
-Thin::Server.class_eval do
-  def stop_with_connection_closing
-    Sinatra::Application.settings.connections.dup.each(&:close)
-    stop_without_connection_closing
-  end
-
-  alias_method :stop_without_connection_closing, :stop
-  alias_method :stop, :stop_with_connection_closing
 end
 
 def send_event(id, body, target=nil)
